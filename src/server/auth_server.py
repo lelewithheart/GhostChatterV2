@@ -140,7 +140,12 @@ def handle_validate(obj: dict, client: ClientInfo) -> None:
     client.send_json({"type": "validate_ok", "username": username, "role": role})
 
 
-def handle_ban_user(obj: dict, client: ClientInfo) -> None:
+def handle_version_check(obj: dict, client: ClientInfo) -> None:
+    """Handle version check requests from clients.
+
+    Reply: {"type":"version_ok","version":"..."}
+    """
+    client.send_json({"type": "version_ok", "version": SERVER_VERSION})
     # allow chat servers to request bans; require instance authentication if instance_id provided
     target = obj.get("target")
     instance_id = obj.get("instance_id")
@@ -199,6 +204,8 @@ def handle_client_connection(sock: socket.socket, addr: Tuple[str, int]) -> None
                 handle_validate(obj, client)
             elif t == "ban_user":
                 handle_ban_user(obj, client)
+            elif t == "version_check":
+                handle_version_check(obj, client)
             else:
                 client.send_json({"type": "error", "reason": "unknown_type"})
 
