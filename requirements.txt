@@ -1,0 +1,5 @@
+cryptography>=40.0
+requests>=2.30
+
+# Optional (bundling / building):
+# pyinstaller>=5.9

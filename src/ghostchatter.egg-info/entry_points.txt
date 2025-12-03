@@ -1,0 +1,4 @@
+[console_scripts]
+ghostchatter-chat = src.server.chat_server:main
+ghostchatter-client = src.client.main:main
+ghostchatter-server = src.server.main:main
