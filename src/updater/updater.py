@@ -31,8 +31,8 @@ if not is_admin():
 
 
 # URLs zur neuesten Version (Client & Version)
-UPDATE_URL = "https://github.com/lelewithheart/chatter/raw/refs/heads/main/dist/client.exe"
-VERSION_URL = "https://raw.githubusercontent.com/lelewithheart/chatter/refs/heads/main/version.txt"
+UPDATE_URL = "https://raw.githubusercontent.com/lelewithheart/GhostChatterV2/main/release/GhostChatterClient.exe"
+VERSION_URL = "https://raw.githubusercontent.com/lelewithheart/GhostChatterV2/main/release/version.txt"
 
 CLIENT_PATH = "client.exe"
 NEW_CLIENT_PATH = "client_new.exe"
