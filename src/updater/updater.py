@@ -34,8 +34,8 @@ if not is_admin():
 UPDATE_URL = "https://raw.githubusercontent.com/lelewithheart/GhostChatterV2/main/release/GhostChatterClient.exe"
 VERSION_URL = "https://raw.githubusercontent.com/lelewithheart/GhostChatterV2/main/release/version.txt"
 
-CLIENT_PATH = "client.exe"
-NEW_CLIENT_PATH = "client_new.exe"
+CLIENT_PATH = "GhostChatterClient.exe"
+NEW_CLIENT_PATH = "GhostChatterClient_new.exe"
 VERSION_PATH = "version.txt"
 NEW_VERSION_PATH = "version_new.txt"
 
