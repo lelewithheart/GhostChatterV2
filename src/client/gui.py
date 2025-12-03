@@ -84,7 +84,10 @@ def run_gui():
 
             # try reading local version file (optional)
             try:
-                base_dir = Path(__file__).resolve().parent.parent.parent
+                if getattr(sys, "frozen", False):
+                    base_dir = Path(sys.executable).parent
+                else:
+                    base_dir = Path(__file__).resolve().parent.parent.parent
                 local_version = (base_dir / "version.txt").read_text(encoding="utf-8").strip()
             except Exception:
                 local_version = "0.0"

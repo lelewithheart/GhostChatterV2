@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import ctypes
 import sys
+from pathlib import Path
 
 
 def restart_client():
@@ -34,10 +35,16 @@ if not is_admin():
 UPDATE_URL = "https://raw.githubusercontent.com/lelewithheart/GhostChatterV2/main/release/GhostChatterClient.exe"
 VERSION_URL = "https://raw.githubusercontent.com/lelewithheart/GhostChatterV2/main/release/version.txt"
 
-CLIENT_PATH = "GhostChatterClient.exe"
-NEW_CLIENT_PATH = "GhostChatterClient_new.exe"
-VERSION_PATH = "version.txt"
-NEW_VERSION_PATH = "version_new.txt"
+# Pfade relativ zum Executable
+if getattr(sys, "frozen", False):
+    base = Path(sys.executable).parent
+else:
+    base = Path(__file__).resolve().parent.parent.parent
+
+CLIENT_PATH = base / "GhostChatterClient.exe"
+NEW_CLIENT_PATH = base / "GhostChatterClient_new.exe"
+VERSION_PATH = base / "version.txt"
+NEW_VERSION_PATH = base / "version_new.txt"
 
 
 def download_new_client():
