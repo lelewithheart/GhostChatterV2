@@ -318,10 +318,13 @@ def show_post_login_menu(root_window, username: str, token: str, servers: list, 
             messagebox.showerror("Connect", "Verbunden, aber Login abgelehnt")
 
     def do_dms():
-        """Open the DM UI. Requires an existing server connection."""
+        """Open the DM UI. If no server connected, connect to global chat first."""
         if not client.sock:
-            messagebox.showinfo("DMs", "Bitte zuerst mit einem Chat-Server verbinden.")
-            return
+            # Automatically connect to global chat
+            do_global()
+            if not client.sock:
+                messagebox.showerror("DMs", "Konnte nicht zum globalen Chat verbinden.")
+                return
         menu.destroy()
         show_dm_window(root_window)
 

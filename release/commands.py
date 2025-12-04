@@ -8,8 +8,10 @@ def register_commands(context) -> Dict[str, Callable[[List[str]], str]]:
     users_conn = context.get("users_conn")
     users_cur = context.get("users_cur")
     stop_flag = context.get("stop_flag")
+    restart_flag = context.get("restart_flag")
     clients_lock = context.get("clients_lock")
     clients = context.get("clients")
+    SERVER_VERSION = context.get("SERVER_VERSION")
 
     def create_user(args):
         if len(args) < 2:
@@ -73,6 +75,15 @@ def register_commands(context) -> Dict[str, Callable[[List[str]], str]]:
         stop_flag.set()
         return "Stopping server..."
 
+    def restart_server(args):
+        restart_flag.set()
+        return "Restarting server..."
+
+    def show_version(args):
+        if SERVER_VERSION:
+            return f"Server version: {SERVER_VERSION[0]}"
+        return "Version not available"
+
     def create_instance(args):
         """create-instance [host] [port]
 
@@ -119,7 +130,7 @@ def register_commands(context) -> Dict[str, Callable[[List[str]], str]]:
             return f"Error changing version: {e}"
 
     def help_cmd(args):
-        return ("Available commands: create-user, list-users, set-role, ban, unban, cv, stop, create-instance, help\n"
+        return ("Available commands: create-user, list-users, set-role, ban, unban, cv, stop, restart, version, create-instance, help\n"
                 "You can edit server-commands.py to add instance-specific commands.")
 
     return {
@@ -130,6 +141,8 @@ def register_commands(context) -> Dict[str, Callable[[List[str]], str]]:
         "unban": unban_user,
         "cv": change_version,
         "stop": stop_server,
+        "restart": restart_server,
+        "version": show_version,
         "create-instance": create_instance,
         "help": help_cmd,
     }
