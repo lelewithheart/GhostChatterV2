@@ -337,6 +337,9 @@ def main(host: str = "0.0.0.0", port: int = 9000) -> None:
         print("[*] Restarting server...")
         restart_flag.clear()
         main(host, port)  # Recursive restart
+    else:
+        print("[*] Server stopped.")
+        sys.exit(0)
 
 
 if __name__ == "__main__":
