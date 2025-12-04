@@ -1,12 +1,14 @@
 """GUI components for the chat client."""
 
+import datetime
 import json
 import subprocess
 import sys
 import threading
 import tkinter as tk
-from pathlib import Path
 from tkinter import messagebox, simpledialog
+from tkinter import ttk
+from pathlib import Path
 from typing import Dict, Optional
 
 from src.common.config import BASE_APPDATA, DEFAULT_HOST, DEFAULT_PORT
@@ -289,44 +291,85 @@ def show_post_login_menu(root_window, username: str, token: str, servers: list, 
         menu.destroy()
         show_chat_window(root_window)
 
-    def do_connect_ip():
-        """Prompt user for host/port and attempt token_login there."""
-        host = simpledialog.askstring("Connect", "Server IP/Hostname:")
-        if not host:
-            return
-        port_str = simpledialog.askstring("Connect", "Port:", initialvalue=str(DEFAULT_PORT))
-        try:
-            port = int(port_str)
-        except Exception:
-            messagebox.showerror("Port", "Ungültiger Port")
-            return
-        sock = connect_to_server(host, port)
-        if not sock:
-            messagebox.showerror("Connect", f"Verbindung fehlgeschlagen")
-            return
-        send_json(sock, {"type": "token_login", "token": token})
-        resp = receive_json(sock)
-        if resp and resp.get("type") in ("login_ok", "validate_ok"):
-            client.username = username
-            client.role = resp.get("role", role)
-            client.sock = sock
-            client.file = sock.makefile("r", encoding="utf-8", newline="\n")
-            menu.destroy()
-            show_chat_window(root_window)
-        else:
-            sock.close()
-            messagebox.showerror("Connect", "Verbunden, aber Login abgelehnt")
+    def connect_to_global():
+        """Connect to global chat server without opening window."""
+        if client.sock:
+            return True
+        connected = False
+        for srv in servers:
+            try:
+                host = srv.get("host")
+                port = int(srv.get("port"))
+            except Exception:
+                continue
+            sock = connect_to_server(host, port)
+            if not sock:
+                continue
+            send_json(sock, {"type": "token_login", "token": token})
+            resp = receive_json(sock)
+            if resp and resp.get("type") in ("login_ok", "validate_ok"):
+                client.username = username
+                client.role = resp.get("role", role)
+                client.sock = sock
+                client.file = sock.makefile("r", encoding="utf-8", newline="\n")
+                connected = True
+                break
+            else:
+                sock.close()
+        if not connected:
+            messagebox.showerror("Verbindung", "Kein erreichbarer Chat-Server gefunden")
+            return False
+        return True
 
     def do_dms():
-        """Open the DM UI. If no server connected, connect to global chat first."""
-        if not client.sock:
-            # Automatically connect to global chat
-            do_global()
-            if not client.sock:
-                messagebox.showerror("DMs", "Konnte nicht zum globalen Chat verbinden.")
-                return
+        """Open the DM UI. Connect to global if needed."""
+        if not connect_to_global():
+            return
         menu.destroy()
         show_dm_window(root_window)
+
+    def do_connect_ip():
+        """Manually connect to a specific IP/Port."""
+        ip_win = tk.Toplevel(menu)
+        ip_win.title("Verbinden zu IP/Port")
+        ip_win.geometry("300x150")
+
+        tk.Label(ip_win, text="Host:").pack(pady=(10, 0))
+        host_entry = tk.Entry(ip_win)
+        host_entry.pack(fill="x", padx=10)
+        host_entry.insert(0, "10.0.29.119")  # default
+
+        tk.Label(ip_win, text="Port:").pack(pady=(10, 0))
+        port_entry = tk.Entry(ip_win)
+        port_entry.pack(fill="x", padx=10)
+        port_entry.insert(0, "9001")  # default chat port
+
+        def connect():
+            host = host_entry.get().strip()
+            try:
+                port = int(port_entry.get().strip())
+            except ValueError:
+                messagebox.showerror("Fehler", "Ungültiger Port")
+                return
+            sock = connect_to_server(host, port)
+            if not sock:
+                messagebox.showerror("Verbindung", "Verbindung fehlgeschlagen")
+                return
+            send_json(sock, {"type": "token_login", "token": token})
+            resp = receive_json(sock)
+            if resp and resp.get("type") in ("login_ok", "validate_ok"):
+                client.username = username
+                client.role = resp.get("role", role)
+                client.sock = sock
+                client.file = sock.makefile("r", encoding="utf-8", newline="\n")
+                ip_win.destroy()
+                menu.destroy()
+                show_chat_window(root_window)
+            else:
+                sock.close()
+                messagebox.showerror("Login", "Login fehlgeschlagen")
+
+        tk.Button(ip_win, text="Verbinden", command=connect).pack(pady=10)
 
     # Buttons
     btn_frame = tk.Frame(menu)
@@ -587,20 +630,22 @@ def show_chat_window(root_window):
 def show_dm_window(root_window):
     dm_win = tk.Toplevel() if root_window is None else tk.Toplevel(root_window)
     dm_win.title("Direct Messages")
-    dm_win.geometry("700x400")
+    dm_win.geometry("900x600")
 
     back_frame_dm = tk.Frame(dm_win)
     back_frame_dm.pack(side="top", fill="x", padx=6, pady=(6, 0))
     tk.Button(back_frame_dm, text="Back to Menu", command=lambda: (dm_win.destroy(), show_post_login_menu(root_window, client.username or "", client.token or "", client.servers or [], client.role))).pack(side="right")
 
-    left = tk.Frame(dm_win, width=200)
+    left = tk.Frame(dm_win, width=150)
     left.pack(side="left", fill="y", padx=6, pady=6)
-    right = tk.Frame(dm_win)
-    right.pack(side="right", fill="both", expand=True, padx=6, pady=6)
+    nb = ttk.Notebook(dm_win)
+    nb.pack(side="right", fill="both", expand=True, padx=6, pady=6)
 
     tk.Label(left, text="Recent Contacts").pack()
     contacts_lb = tk.Listbox(left, height=20)
     contacts_lb.pack(fill="y", expand=True)
+
+    dm_tabs = {}  # user -> tab_frame
 
     def refresh_contacts():
         contacts_lb.delete(0, "end")
@@ -609,60 +654,97 @@ def show_dm_window(root_window):
 
     refresh_contacts()
 
-    chat_txt = tk.Text(right, state="disabled", wrap="word")
-    chat_txt.pack(fill="both", expand=True)
-
-    entry_frame = tk.Frame(right)
-    entry_frame.pack(fill="x")
-    to_label = tk.Label(entry_frame, text="To:")
-    to_label.pack(side="left")
-    to_var = tk.StringVar()
-    to_entry = tk.Entry(entry_frame, textvariable=to_var)
-    to_entry.pack(side="left", fill="x", expand=True, padx=6)
-    msg_entry = tk.Entry(entry_frame)
-    msg_entry.pack(side="right", fill="x", expand=True)
-    try:
-        import logging
-        msg_entry.bind("<FocusOut>", lambda e: logging.getLogger("ghostchatter.ui").info("dm msg_entry focus out"))
-        msg_entry.bind("<FocusIn>", lambda e: logging.getLogger("ghostchatter.ui").info("dm msg_entry focus in"))
-    except Exception:
-        pass
-
-    def append_dm_to_view(other, from_user, text, ts):
-        chat_txt.configure(state="normal")
-        chat_txt.insert("end", f"[{ts}] {from_user}: {text}\n")
-        chat_txt.configure(state="disabled")
-        chat_txt.see("end")
-
     def open_contact(evt=None):
         sel = contacts_lb.curselection()
         if not sel:
             return
         other = contacts_lb.get(sel[0])
-        to_var.set(other)
-        chat_txt.configure(state="normal")
-        chat_txt.delete("1.0", "end")
+        if other in dm_tabs:
+            nb.select(dm_tabs[other])
+            return
+        # Create new tab
+        tab = tk.Frame(nb)
+        nb.add(tab, text=other)
+        dm_tabs[other] = tab
+
+        # Chat text
+        txt = tk.Text(tab, state="disabled", wrap="word")
+        txt.pack(fill="both", expand=True)
+
+        # Load history
         for e in client.dm_history.get(other, []):
-            append_dm_to_view(other, e.get("from"), e.get("message"), e.get("ts"))
-        chat_txt.configure(state="disabled")
+            txt.configure(state="normal")
+            txt.insert("end", f"[{e.get('ts')}] {e.get('from')}: {e.get('message')}\n")
+            txt.configure(state="disabled")
+            txt.see("end")
+
+        # Entry frame
+        ef = tk.Frame(tab)
+        ef.pack(fill="x", side="bottom")
+        msg_entry = tk.Entry(ef)
+        msg_entry.pack(side="left", fill="x", expand=True)
+        send_btn = tk.Button(ef, text="Send", command=lambda: send_dm(other, msg_entry))
+        send_btn.pack(side="right")
+
+        def send_dm(to_user, entry):
+            txt_msg = entry.get().strip()
+            if not txt_msg:
+                return
+            client.send({"type": "pm", "to": to_user, "message": txt_msg})
+            client.add_dm(to_user=to_user, from_user=client.username or "", message=txt_msg, incoming=False)
+            txt.configure(state="normal")
+            txt.insert("end", f"[{datetime.datetime.now().strftime('%H:%M:%S')}] me: {txt_msg}\n")
+            txt.configure(state="disabled")
+            txt.see("end")
+            entry.delete(0, "end")
+            refresh_contacts()
+
+        msg_entry.bind("<Return>", lambda e: send_dm(other, msg_entry))
 
     contacts_lb.bind("<<ListboxSelect>>", open_contact)
 
-    def send_dm_from_ui(event=None):
-        to = to_entry.get().strip()
-        txt_msg = msg_entry.get().strip()
-        if not to or not txt_msg:
+    def open_contact_for_user(user):
+        if user in dm_tabs:
+            nb.select(dm_tabs[user])
             return
-        client.send({"type": "pm", "to": to, "message": txt_msg})
-        # record outgoing
-        client.add_dm(to_user=to, from_user=client.username or "", message=txt_msg, incoming=False)
-        append_dm_to_view(to, client.username or "", txt_msg, datetime_now())
-        msg_entry.delete(0, "end")
-        refresh_contacts()
+        # Create new tab
+        tab = tk.Frame(nb)
+        nb.add(tab, text=user)
+        dm_tabs[user] = tab
 
-    send_btn = tk.Button(entry_frame, text="Send", command=send_dm_from_ui)
-    send_btn.pack(side="right", padx=6)
-    msg_entry.bind("<Return>", send_dm_from_ui)
+        # Chat text
+        txt = tk.Text(tab, state="disabled", wrap="word")
+        txt.pack(fill="both", expand=True)
+
+        # Load history
+        for e in client.dm_history.get(user, []):
+            txt.configure(state="normal")
+            txt.insert("end", f"[{e.get('ts')}] {e.get('from')}: {e.get('message')}\n")
+            txt.configure(state="disabled")
+            txt.see("end")
+
+        # Entry frame
+        ef = tk.Frame(tab)
+        ef.pack(fill="x", side="bottom")
+        msg_entry = tk.Entry(ef)
+        msg_entry.pack(side="left", fill="x", expand=True)
+        send_btn = tk.Button(ef, text="Send", command=lambda: send_dm(user, msg_entry))
+        send_btn.pack(side="right")
+
+        def send_dm(to_user, entry):
+            txt_msg = entry.get().strip()
+            if not txt_msg:
+                return
+            client.send({"type": "pm", "to": to_user, "message": txt_msg})
+            client.add_dm(to_user=to_user, from_user=client.username or "", message=txt_msg, incoming=False)
+            txt.configure(state="normal")
+            txt.insert("end", f"[{datetime_now()}] me: {txt_msg}\n")
+            txt.configure(state="disabled")
+            txt.see("end")
+            entry.delete(0, "end")
+            refresh_contacts()
+
+        msg_entry.bind("<Return>", lambda e: send_dm(user, msg_entry))
 
     # expose helper to main window so incoming PMs can append
     def append_dm_window(*args):
@@ -672,29 +754,84 @@ def show_dm_window(root_window):
         """
         if len(args) == 2:
             from_user, text = args
-        elif len(args) == 1:
-            # Called as a Tk callback with an event object; ignore event
-            try:
-                event = args[0]
-                # try to glean sender from event if possible (not reliable)
-                from_user = getattr(event, 'widget', None)
-            except Exception:
-                from_user = None
-            text = ""
         else:
             return
 
-        try:
-            sel = contacts_lb.curselection()
-            cur = contacts_lb.get(sel[0]) if sel else None
-        except Exception:
-            cur = None
-        if cur == from_user:
-            append_dm_to_view(from_user, from_user, text, datetime_now())
+        if from_user in dm_tabs:
+            # Append to existing tab
+            tab = dm_tabs[from_user]
+            txt = None
+            for child in tab.winfo_children():
+                if isinstance(child, tk.Text):
+                    txt = child
+                    break
+            if txt:
+                txt.configure(state="normal")
+                txt.insert("end", f"[{datetime.datetime.now().strftime('%H:%M:%S')}] {from_user}: {text}\n")
+                txt.configure(state="disabled")
+                txt.see("end")
         else:
-            messagebox.showinfo("Neue Nachricht", f"Von {from_user}: {text}")
+            # Open new tab and append
+            open_contact_for_user(from_user)
+            if from_user in dm_tabs:
+                tab = dm_tabs[from_user]
+                txt = None
+                for child in tab.winfo_children():
+                    if isinstance(child, tk.Text):
+                        txt = child
+                        break
+                if txt:
+                    txt.configure(state="normal")
+                    txt.insert("end", f"[{datetime.datetime.now().strftime('%H:%M:%S')}] {from_user}: {text}\n")
+                    txt.configure(state="disabled")
+                    txt.see("end")
+            else:
+                messagebox.showinfo("Neue Nachricht", f"Von {from_user}: {text}")
         refresh_contacts()
+
+    def open_contact_for_user(user):
+        if user in dm_tabs:
+            nb.select(dm_tabs[user])
+            return
+        # Create new tab
+        tab = tk.Frame(nb)
+        nb.add(tab, text=user)
+        dm_tabs[user] = tab
+
+        # Chat text
+        txt = tk.Text(tab, state="disabled", wrap="word")
+        txt.pack(fill="both", expand=True)
+
+        # Load history
+        for e in client.dm_history.get(user, []):
+            txt.configure(state="normal")
+            txt.insert("end", f"[{e.get('ts')}] {e.get('from')}: {e.get('message')}\n")
+            txt.configure(state="disabled")
+            txt.see("end")
+
+        # Entry frame
+        ef = tk.Frame(tab)
+        ef.pack(fill="x", side="bottom")
+        msg_entry = tk.Entry(ef)
+        msg_entry.pack(side="left", fill="x", expand=True)
+        send_btn = tk.Button(ef, text="Send", command=lambda: send_dm(user, msg_entry))
+        send_btn.pack(side="right")
+
+        def send_dm(to_user, entry):
+            txt_msg = entry.get().strip()
+            if not txt_msg:
+                return
+            client.send({"type": "pm", "to": to_user, "message": txt_msg})
+            client.add_dm(to_user=to_user, from_user=client.username or "", message=txt_msg, incoming=False)
+            txt.configure(state="normal")
+            txt.insert("end", f"[{datetime.datetime.now().strftime('%H:%M:%S')}] me: {txt_msg}\n")
+            txt.configure(state="disabled")
+            txt.see("end")
+            entry.delete(0, "end")
+            refresh_contacts()
+
+        msg_entry.bind("<Return>", lambda e: send_dm(user, msg_entry))
 
     dm_win.append_dm = append_dm_window
     client.dm_window = dm_win
-    dm_win.protocol("WM_DELETE_WINDOW", lambda: (setattr(client, "dm_window", None), sys.exit(0)))
+    dm_win.protocol("WM_DELETE_WINDOW", lambda: (client.close(), sys.exit(0)))
