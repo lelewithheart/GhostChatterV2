@@ -53,6 +53,12 @@ class ChatClient:
             pass
 
     def close(self) -> None:
+        # mark not running and log close reason for debugging
+        try:
+            import logging
+            logging.getLogger("ghostchatter.client").info("ChatClient.close() called")
+        except Exception:
+            pass
         self.running = False
         try:
             if self.file:

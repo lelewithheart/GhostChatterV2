@@ -409,6 +409,12 @@ def show_chat_window(root_window):
     entry_frame.pack(side="bottom", fill="x", padx=6, pady=6)
     entry = tk.Entry(entry_frame)
     entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
+    try:
+        import logging
+        entry.bind("<FocusOut>", lambda e: logging.getLogger("ghostchatter.ui").info("chat entry focus out"))
+        entry.bind("<FocusIn>", lambda e: logging.getLogger("ghostchatter.ui").info("chat entry focus in"))
+    except Exception:
+        pass
 
     def on_send(event=None):
         txt_msg = entry.get().strip()
@@ -478,9 +484,28 @@ def show_chat_window(root_window):
         client.running = True
         try:
             while client.running and client.file:
-                line = client.file.readline()
-                if not line:
+                try:
+                    line = client.file.readline()
+                except Exception as e:
+                    try:
+                        import logging
+                        logging.getLogger("ghostchatter.client").exception(
+                            f"network_loop: exception reading from socket: {e}"
+                        )
+                    except Exception:
+                        pass
                     break
+
+                if not line:
+                    try:
+                        import logging
+                        logging.getLogger("ghostchatter.client").info(
+                            "network_loop: EOF from server / socket closed"
+                        )
+                    except Exception:
+                        pass
+                    break
+
                 try:
                     obj = json.loads(line)
                 except Exception:
@@ -498,7 +523,9 @@ def show_chat_window(root_window):
                     frm = obj.get("from")
                     msg = obj.get("message")
                     # store DM history and notify
-                    client.add_dm(to_user=client.username or "", from_user=frm, message=msg, incoming=True)
+                    client.add_dm(
+                        to_user=client.username or "", from_user=frm, message=msg, incoming=True
+                    )
                     try:
                         dmw = getattr(client, "dm_window", None)
                         if dmw:
@@ -532,6 +559,11 @@ def show_chat_window(root_window):
                     win.after(0, append_message, 0, "*system*", f"User {target} was banned by a moderator", datetime_now())
 
         finally:
+            try:
+                import logging
+                logging.getLogger("ghostchatter.client").info("network_loop: exiting, calling client.close()")
+            except Exception:
+                pass
             client.close()
 
     # start network thread
@@ -583,6 +615,12 @@ def show_dm_window(root_window):
     to_entry.pack(side="left", fill="x", expand=True, padx=6)
     msg_entry = tk.Entry(entry_frame)
     msg_entry.pack(side="right", fill="x", expand=True)
+    try:
+        import logging
+        msg_entry.bind("<FocusOut>", lambda e: logging.getLogger("ghostchatter.ui").info("dm msg_entry focus out"))
+        msg_entry.bind("<FocusIn>", lambda e: logging.getLogger("ghostchatter.ui").info("dm msg_entry focus in"))
+    except Exception:
+        pass
 
     def append_dm_to_view(other, from_user, text, ts):
         chat_txt.configure(state="normal")
@@ -621,14 +659,32 @@ def show_dm_window(root_window):
     msg_entry.bind("<Return>", send_dm_from_ui)
 
     # expose helper to main window so incoming PMs can append
-    def append_dm_window(other, from_user, text):
+    def append_dm_window(*args):
+        """Robust incoming-PM handler.
+
+        Accepts either (from_user, text) or (event,) (ignore) to avoid Tk callback mismatches.
+        """
+        if len(args) == 2:
+            from_user, text = args
+        elif len(args) == 1:
+            # Called as a Tk callback with an event object; ignore event
+            try:
+                event = args[0]
+                # try to glean sender from event if possible (not reliable)
+                from_user = getattr(event, 'widget', None)
+            except Exception:
+                from_user = None
+            text = ""
+        else:
+            return
+
         try:
             sel = contacts_lb.curselection()
             cur = contacts_lb.get(sel[0]) if sel else None
         except Exception:
             cur = None
-        if cur == other:
-            append_dm_to_view(other, from_user, text, datetime_now())
+        if cur == from_user:
+            append_dm_to_view(from_user, from_user, text, datetime_now())
         else:
             messagebox.showinfo("Neue Nachricht", f"Von {from_user}: {text}")
         refresh_contacts()
