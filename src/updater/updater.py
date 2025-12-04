@@ -84,4 +84,5 @@ if __name__ == "__main__":
     download_new_client()
     download_version_file()
     replace_files()
-    restart_client()
+    print("Update abgeschlossen. Starten Sie den Client manuell neu.")
+    # restart_client()  # Commented out to avoid path issues
