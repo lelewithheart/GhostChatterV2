@@ -307,6 +307,27 @@ def send_change_version_to_auth(new_version: str, auth_host: str, auth_port: int
         return False
 
 
+def send_ban_to_auth(target: str, auth_host: str, auth_port: int) -> bool:
+    """Send a ban_user request to auth server, including instance HMAC if available."""
+    try:
+        instance_id = os.getenv("GHOST_INSTANCE_ID")
+        instance_secret = os.getenv("GHOST_INSTANCE_SECRET")
+        req = {"type": "ban_user", "target": target}
+        if instance_id and instance_secret:
+            mac = hmac.new(instance_secret.encode("utf-8"), f"{target}:{instance_id}".encode("utf-8"), hashlib.sha256).hexdigest()
+            req["instance_id"] = instance_id
+            req["hmac"] = mac
+        s = socket.create_connection((auth_host, auth_port), timeout=3.0)
+        send_json(s, req)
+        try:
+            s.close()
+        except Exception:
+            pass
+        return True
+    except Exception:
+        return False
+
+
 def main(host: str = "0.0.0.0", port: int = 9001, auth_host: str = "127.0.0.1", auth_port: int = 9000):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

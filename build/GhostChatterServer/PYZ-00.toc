@@ -429,6 +429,9 @@
   ('src.server.auth_server',
    'C:\\Users\\lelew\\Desktop\\Coding\\Projects\\GohstChatter\\chatter-refactored\\src\\server\\auth_server.py',
    'PYMODULE'),
+  ('src.server.commands',
+   'C:\\Users\\lelew\\Desktop\\Coding\\Projects\\GohstChatter\\chatter-refactored\\src\\server\\commands.py',
+   'PYMODULE'),
   ('statistics',
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_3.13.2544.0_x64__qbz5n2kfra8p0\\Lib\\statistics.py',

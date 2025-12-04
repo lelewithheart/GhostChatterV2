@@ -118,7 +118,7 @@
  [],
  False,
  False,
- 1764793276,
+ 1764834137,
  [('run.exe',
    'C:\\Users\\lelew\\Desktop\\Coding\\Projects\\GohstChatter\\chatter-refactored\\.venv\\Lib\\site-packages\\PyInstaller\\bootloader\\Windows-64bit-intel\\run.exe',
    'EXECUTABLE')],
