@@ -312,11 +312,17 @@ def main(host: str = "0.0.0.0", port: int = 9000) -> None:
     s.bind((host, port))
     s.listen(50)
     print(f"[*] Auth server listening on {host}:{port}")
+    # Use the stop_flag from the command context so `stop` CLI command can shut the loop down
+    stop_flag = context.get("stop_flag")
+    # Make accept() interruptible by using a timeout so we can check stop_flag periodically
+    s.settimeout(1.0)
     try:
-        while True:
+        while not stop_flag.is_set():
             try:
                 conn, addr = s.accept()
                 threading.Thread(target=handle_client_connection, args=(conn, addr), daemon=True).start()
+            except socket.timeout:
+                continue
             except OSError:
                 break
     finally:
