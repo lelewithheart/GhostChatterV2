@@ -27,6 +27,7 @@ def run_gui():
     root = tk.Tk()
     root.title("Login / Register")
     root.geometry("320x260")
+    root.protocol("WM_DELETE_WINDOW", lambda: sys.exit(0))
 
     tk.Label(root, text="Username:").pack(pady=(12, 0))
     user_entry = tk.Entry(root)
@@ -331,6 +332,8 @@ def show_post_login_menu(root_window, username: str, token: str, servers: list, 
     tk.Button(btn_frame, text="Verbinden (IP/Port)", width=22, command=do_connect_ip).pack(pady=6)
     tk.Button(btn_frame, text="DMs", width=22, command=do_dms).pack(pady=6)
 
+    menu.protocol("WM_DELETE_WINDOW", lambda: sys.exit(0))
+
 
 def show_chat_window(root_window):
     """Show main chat window (global chat). This function also starts the network thread."""
@@ -575,7 +578,7 @@ def show_chat_window(root_window):
         show_post_login_menu(root_win, client.username or "", client.token or "", client.servers or [], client.role)
 
     # keep window open
-    win.protocol("WM_DELETE_WINDOW", lambda: (client.close(), win.quit()))
+    win.protocol("WM_DELETE_WINDOW", lambda: (client.close(), sys.exit(0)))
 
 
 def show_dm_window(root_window):
@@ -691,4 +694,4 @@ def show_dm_window(root_window):
 
     dm_win.append_dm = append_dm_window
     client.dm_window = dm_win
-    dm_win.protocol("WM_DELETE_WINDOW", lambda: (setattr(client, "dm_window", None), dm_win.destroy()))
+    dm_win.protocol("WM_DELETE_WINDOW", lambda: (setattr(client, "dm_window", None), sys.exit(0)))

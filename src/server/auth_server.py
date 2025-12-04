@@ -298,6 +298,7 @@ def main(host: str = "0.0.0.0", port: int = 9000) -> None:
         "BASE_DIR": BASE_DIR,
         "SERVER_VERSION": SERVER_VERSION,
         "stop_flag": threading.Event(),
+        "restart_flag": threading.Event(),
         "clients_lock": None,  # auth server doesn't have clients list
         "clients": None,
     }
@@ -314,10 +315,11 @@ def main(host: str = "0.0.0.0", port: int = 9000) -> None:
     print(f"[*] Auth server listening on {host}:{port}")
     # Use the stop_flag from the command context so `stop` CLI command can shut the loop down
     stop_flag = context.get("stop_flag")
+    restart_flag = context.get("restart_flag")
     # Make accept() interruptible by using a timeout so we can check stop_flag periodically
     s.settimeout(1.0)
     try:
-        while not stop_flag.is_set():
+        while not stop_flag.is_set() and not restart_flag.is_set():
             try:
                 conn, addr = s.accept()
                 threading.Thread(target=handle_client_connection, args=(conn, addr), daemon=True).start()
@@ -330,6 +332,11 @@ def main(host: str = "0.0.0.0", port: int = 9000) -> None:
             s.close()
         except Exception:
             pass
+
+    if restart_flag.is_set():
+        print("[*] Restarting server...")
+        restart_flag.clear()
+        main(host, port)  # Recursive restart
 
 
 if __name__ == "__main__":
