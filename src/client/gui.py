@@ -543,7 +543,7 @@ def show_chat_window(root_window):
         show_post_login_menu(root_win, client.username or "", client.token or "", client.servers or [], client.role)
 
     # keep window open
-    win.protocol("WM_DELETE_WINDOW", lambda: (client.close(), win.destroy()))
+    win.protocol("WM_DELETE_WINDOW", lambda: (client.close(), win.quit()))
 
 
 def show_dm_window(root_window):

@@ -64,25 +64,38 @@ def download_version_file():
 
 
 def replace_files():
-    # Falls alte Client.exe noch nicht geschlossen -> etwas warten
-    time.sleep(2)
+    # Wait longer for the client to fully exit
+    time.sleep(5)
 
-    # Client ersetzen
-    if os.path.exists(CLIENT_PATH):
-        os.remove(CLIENT_PATH)
-    os.rename(NEW_CLIENT_PATH, CLIENT_PATH)
-    print("Client aktualisiert.")
+    try:
+        # Client ersetzen
+        if os.path.exists(CLIENT_PATH):
+            os.remove(CLIENT_PATH)
+        os.rename(NEW_CLIENT_PATH, CLIENT_PATH)
+        print("Client aktualisiert.")
+    except PermissionError as e:
+        print(f"Fehler beim Ersetzen der Client-Datei: {e}")
+        print("Stellen Sie sicher, dass der Client vollständig geschlossen ist.")
+        return False
 
-    # Version.txt ersetzen
-    if os.path.exists(VERSION_PATH):
-        os.remove(VERSION_PATH)
-    os.rename(NEW_VERSION_PATH, VERSION_PATH)
-    print("Versionsdatei aktualisiert.")
+    try:
+        # Version.txt ersetzen
+        if os.path.exists(VERSION_PATH):
+            os.remove(VERSION_PATH)
+        os.rename(NEW_VERSION_PATH, VERSION_PATH)
+        print("Versionsdatei aktualisiert.")
+    except PermissionError as e:
+        print(f"Fehler beim Ersetzen der Versionsdatei: {e}")
+        return False
+
+    return True
 
 
 if __name__ == "__main__":
     download_new_client()
     download_version_file()
-    replace_files()
-    print("Update abgeschlossen. Starten Sie den Client manuell neu.")
-    # restart_client()  # Commented out to avoid path issues
+    if replace_files():
+        print("Update abgeschlossen. Starte Client neu...")
+        subprocess.Popen([CLIENT_PATH])
+    else:
+        print("Update fehlgeschlagen.")

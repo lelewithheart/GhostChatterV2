@@ -100,8 +100,26 @@ def register_commands(context) -> Dict[str, Callable[[List[str]], str]]:
         except Exception as e:
             return f"Error creating instance: {e}"
 
+    def change_version(args):
+        if len(args) < 1:
+            return "Usage: cv <new_version>"
+        new_version = args[0]
+        try:
+            from pathlib import Path
+            BASE_DIR = context.get("BASE_DIR")
+            if not BASE_DIR:
+                return "BASE_DIR not available"
+            (BASE_DIR / "version.txt").write_text(new_version, encoding="utf-8")
+            # Update global SERVER_VERSION if available
+            sv = context.get("SERVER_VERSION")
+            if sv is not None:
+                sv[0] = new_version  # assuming it's a list or mutable
+            return f"Version changed to {new_version}"
+        except Exception as e:
+            return f"Error changing version: {e}"
+
     def help_cmd(args):
-        return ("Available commands: create-user, list-users, set-role, ban, unban, stop, help\n"
+        return ("Available commands: create-user, list-users, set-role, ban, unban, cv, stop, create-instance, help\n"
                 "You can edit server-commands.py to add instance-specific commands.")
 
     return {
@@ -110,6 +128,7 @@ def register_commands(context) -> Dict[str, Callable[[List[str]], str]]:
         "set-role": set_role,
         "ban": ban_user,
         "unban": unban_user,
+        "cv": change_version,
         "stop": stop_server,
         "create-instance": create_instance,
         "help": help_cmd,

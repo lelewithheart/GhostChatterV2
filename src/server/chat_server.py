@@ -152,10 +152,71 @@ def handle_client(conn: socket.socket, addr: Tuple[str, int], auth_host: str, au
             t = obj.get("type")
             if t == "message":
                 msg = obj.get("message", "")
-                mid = save_chat(ci.username, msg)
-                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                pkt = {"type": "message", "id": mid, "username": ci.username, "message": msg, "timestamp": now}
-                broadcast(pkt)
+                if msg.startswith("/"):
+                    # Handle commands
+                    parts = msg[1:].split()
+                    if not parts:
+                        continue
+                    cmd = parts[0].lower()
+                    if cmd in ["cv", "change_version"]:
+                        if len(parts) < 2:
+                            ci.send_json({"type": "error", "reason": "usage: /cv <new_version>"})
+                            continue
+                        new_version = parts[1]
+                        if send_change_version_to_auth(new_version, auth_host, auth_port):
+                            ci.send_json({"type": "info", "message": f"Version changed to {new_version}"})
+                        else:
+                            ci.send_json({"type": "error", "reason": "Failed to change version"})
+                    elif ci.role == "mod":
+                        if cmd == "delete":
+                            if len(parts) < 2:
+                                ci.send_json({"type": "error", "reason": "usage: /delete <message_id>"})
+                                continue
+                            try:
+                                mid = int(parts[1])
+                                chat_cur.execute("DELETE FROM chat WHERE id=?", (mid,))
+                                chat_conn.commit()
+                                broadcast({"type": "delete", "id": mid})
+                            except Exception:
+                                ci.send_json({"type": "error", "reason": "Invalid message ID"})
+                        elif cmd == "warn":
+                            if len(parts) < 3:
+                                ci.send_json({"type": "error", "reason": "usage: /warn <user> <reason>"})
+                                continue
+                            target = parts[1]
+                            reason = " ".join(parts[2:])
+                            with clients_lock:
+                                for c in clients:
+                                    if c.username == target:
+                                        c.send_json({"type": "warn", "from": ci.username, "reason": reason})
+                                        break
+                        elif cmd == "ban":
+                            if len(parts) < 2:
+                                ci.send_json({"type": "error", "reason": "usage: /ban <user>"})
+                                continue
+                            target = parts[1]
+                            if send_ban_to_auth(target, auth_host, auth_port):
+                                with clients_lock:
+                                    for c in list(clients):
+                                        if c.username == target:
+                                            c.send_json({"type": "banned", "reason": "You were banned by a moderator"})
+                                            try:
+                                                c.sock.shutdown(socket.SHUT_RDWR)
+                                                c.sock.close()
+                                            except Exception:
+                                                pass
+                            else:
+                                ci.send_json({"type": "error", "reason": "Failed to ban user"})
+                        else:
+                            ci.send_json({"type": "error", "reason": "Unknown command"})
+                    else:
+                        ci.send_json({"type": "error", "reason": "Unknown command or insufficient permissions"})
+                else:
+                    # Regular message
+                    mid = save_chat(ci.username, msg)
+                    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    pkt = {"type": "message", "id": mid, "username": ci.username, "message": msg, "timestamp": now}
+                    broadcast(pkt)
             elif t == "pm":
                 target = obj.get("to")
                 msg = obj.get("message", "")
@@ -225,14 +286,14 @@ def handle_client(conn: socket.socket, addr: Tuple[str, int], auth_host: str, au
             pass
 
 
-def send_ban_to_auth(target: str, auth_host: str, auth_port: int) -> bool:
-    """Send a ban_user request to auth server, including instance HMAC if available."""
+def send_change_version_to_auth(new_version: str, auth_host: str, auth_port: int) -> bool:
+    """Send a change_version request to auth server, including instance HMAC if available."""
     try:
         instance_id = os.getenv("GHOST_INSTANCE_ID")
         instance_secret = os.getenv("GHOST_INSTANCE_SECRET")
-        req = {"type": "ban_user", "target": target}
+        req = {"type": "change_version", "version": new_version}
         if instance_id and instance_secret:
-            mac = hmac.new(instance_secret.encode("utf-8"), f"{target}:{instance_id}".encode("utf-8"), hashlib.sha256).hexdigest()
+            mac = hmac.new(instance_secret.encode("utf-8"), f"{new_version}:{instance_id}".encode("utf-8"), hashlib.sha256).hexdigest()
             req["instance_id"] = instance_id
             req["hmac"] = mac
         s = socket.create_connection((auth_host, auth_port), timeout=3.0)
