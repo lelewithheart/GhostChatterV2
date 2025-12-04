@@ -410,7 +410,7 @@ def show_chat_window(root_window):
         txt.tag_add(tag, start, end)
         if client.role == "mod":
             # right-click menu for moderators to moderate this message
-            txt.tag_bind(tag, "<Button-3>", lambda e, m=mid, u=username: show_mod_menu(e, m, u))
+            txt.tag_bind(tag, "<ButtonPress-3>", lambda e, m=mid, u=username: show_mod_menu(e, m, u))
         txt.configure(state="disabled")
         txt.see("end")
 
