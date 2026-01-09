@@ -9,12 +9,16 @@ import secrets
 import time
 import hmac
 import hashlib
+import bcrypt
 from pathlib import Path
 from typing import Dict, Tuple, Optional, Callable, List
 
-from src.common.config import BASE_DIR, CHAT_SERVERS, TOKEN_TTL
-from src.common.database import users_conn, users_cur, instances_conn, instances_cur
-from src.server.commands import register_commands
+# Allow running this file directly
+sys.path.insert(0, 'c:\\Users\\lelew\\Desktop\\Coding\\Projects\\GohstChatter\\chatter-refactored\\src')
+
+from common.config import BASE_DIR, CHAT_SERVERS, TOKEN_TTL
+from common.database import users_conn, users_cur, instances_conn, instances_cur
+from server.commands import register_commands
 
 
 # Token store: token -> (username, role, expiry)
@@ -57,8 +61,8 @@ def handle_login(obj: dict, client: ClientInfo) -> None:
     if not row:
         client.send_json({"type": "login_fail", "reason": "no_user"})
         return
-    db_pw, role, banned = row[0], row[1] or "user", bool(row[2])
-    if db_pw != password:
+    db_pw_hash, role, banned = row[0], row[1] or "user", bool(row[2])
+    if not bcrypt.checkpw(password.encode("utf-8"), db_pw_hash):
         client.send_json({"type": "login_fail", "reason": "bad_password"})
         return
     if banned:
@@ -90,7 +94,10 @@ def handle_register(obj: dict, client: ClientInfo) -> None:
     if users_cur.fetchone():
         client.send_json({"type": "register_fail", "reason": "exists"})
         return
-    users_cur.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
+    
+    hashed_password = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
+    
+    users_cur.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_password))
     users_conn.commit()
     client.send_json({"type": "register_ok"})
 

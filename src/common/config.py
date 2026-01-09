@@ -9,15 +9,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 BASE_APPDATA = Path.home() / "GhostChat"
 BASE_APPDATA.mkdir(parents=True, exist_ok=True)
 
-# Default server settings
-# Default host changed to local network IP requested by user
-DEFAULT_HOST = "69.9.185.17"
-DEFAULT_PORT = 19202
+# Default server settings (auth server)
+# For local development, use the local auth_server
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 9000
 
 # Token TTL
 TOKEN_TTL = 60 * 60  # 1 hour
 
 # Chat servers (can be loaded from DB or config)
+# For local development, point to the local chat_server
 CHAT_SERVERS = [
-    {"name": "main_chat", "host": "69.9.185.17", "port": 25603},
+    {"name": "main_chat", "host": "127.0.0.1", "port": 9001},
 ]

@@ -2,12 +2,16 @@
 
 import json
 import socket
+import sys
 from pathlib import Path
 from typing import Dict, Optional
 
-from src.common.config import BASE_APPDATA
-from src.common.crypto import decrypt_message, encrypt_message
-from src.common.network import connect_to_server
+# Allow running this file directly
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from common.config import BASE_APPDATA
+from common.crypto import decrypt_message, encrypt_message
+from common.network import connect_to_server
 
 
 class ChatClient:

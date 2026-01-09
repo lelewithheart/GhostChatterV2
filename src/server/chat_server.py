@@ -16,9 +16,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from datetime import datetime
 from typing import Tuple, List
 
-from src.common.config import BASE_DIR
-from src.common.database import chat_conn, chat_cur
-from src.common.network import send_json
+from common.config import BASE_DIR
+from common.database import chat_conn, chat_cur
+from common.network import send_json
 
 
 # channel-specific moderators stored per-instance
